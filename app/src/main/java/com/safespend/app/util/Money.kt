@@ -25,6 +25,9 @@ object Money {
         DecimalFormatSymbols(Locale.US),
     )
 
+    /** The first number in a string: digits, optional grouping, optional decimals. */
+    private val NUMBER = Regex("""\d[\d,\s]*(?:\.\d+)?""")
+
     /** "Rs 12,450.00". Negative values keep the sign in front of the symbol. */
     fun format(minor: Long, symbol: String = "Rs"): String {
         val sign = if (minor < 0) "-" else ""
@@ -53,12 +56,17 @@ object Money {
      * callers treat null as "don't save yet", not as zero.
      */
     fun parse(input: String): Long? {
-        val cleaned = input.trim()
-            .replace(Regex("[^0-9.,-]"), "")
-            .replace(",", "")
-        if (cleaned.isEmpty() || cleaned == "." || cleaned == "-") return null
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return null
+        // Direction is carried by the transaction type, never by a minus sign.
+        if (trimmed.contains('-')) return null
+        // Pull out the first number rather than stripping symbols, so the dot in
+        // "Rs." can't be mistaken for a decimal point.
+        val cleaned = NUMBER.find(trimmed)?.value
+            ?.replace(",", "")
+            ?.replace(" ", "")
+            ?: return null
         val value = cleaned.toBigDecimalOrNull() ?: return null
-        if (value.signum() < 0) return null
         return value
             .multiply(BigDecimal(MINOR_PER_MAJOR))
             .setScale(0, RoundingMode.HALF_UP)

@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,7 +145,9 @@ fun AddEditTransactionScreen(
                     OutlinedTextField(
                         value = state.amountInput,
                         onValueChange = viewModel::setAmount,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(EntryTestTags.AMOUNT_FIELD),
                         placeholder = { Text("0.00", style = MaterialTheme.typography.headlineMedium) },
                         textStyle = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
@@ -304,7 +307,8 @@ fun AddEditTransactionScreen(
                 enabled = state.canSave,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(52.dp)
+                    .testTag(EntryTestTags.SAVE_BUTTON),
                 shape = MaterialTheme.shapes.small,
             ) {
                 Text(
@@ -440,4 +444,10 @@ private fun TypeToggle(
             }
         }
     }
+}
+
+/** Stable handles for the instrumented UI test, so it doesn't depend on wording. */
+object EntryTestTags {
+    const val AMOUNT_FIELD = "entry_amount_field"
+    const val SAVE_BUTTON = "entry_save_button"
 }

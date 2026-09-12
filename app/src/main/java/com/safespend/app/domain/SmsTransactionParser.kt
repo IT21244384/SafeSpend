@@ -126,13 +126,17 @@ object SmsTransactionParser {
         // "at 14:32" and "to A/C 1234" are timestamps and account numbers, not shops.
         if (candidate.none { it.isLetter() }) return null
         if (candidate.length < 2) return null
-        return candidate
-            .split(" ")
-            .filter { it.isNotBlank() }
-            .joinToString(" ") { word ->
-                if (word.length <= 3 && word.all { it.isUpperCase() }) word
-                else word.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }
-            }
+
+        val words = candidate.split(" ").filter { it.isNotBlank() }
+        // A lone short all-caps token is an acronym the bank meant literally — IOC,
+        // SLT, CEB. Inside a longer name it is just shouting ("PIZZA HUT"), so those
+        // get title-cased like any other word.
+        if (words.size == 1 && words[0].length <= 4 && words[0].all { it.isUpperCase() }) {
+            return words[0]
+        }
+        return words.joinToString(" ") { word ->
+            word.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }
+        }
     }
 
     private fun extractDate(text: String): LocalDate? {

@@ -44,6 +44,16 @@ abstract class SafeSpendDatabase : RoomDatabase() {
                 instance ?: build(context.applicationContext).also { instance = it }
             }
 
+        /**
+         * A throwaway database with the same seed callback and the same foreign-key
+         * settings as the real one. Tests that build Room by hand would silently skip
+         * both, and then pass against a schema the app never actually runs.
+         */
+        internal fun inMemory(context: Context): SafeSpendDatabase =
+            Room.inMemoryDatabaseBuilder(context, SafeSpendDatabase::class.java)
+                .addCallback(SeedCallback)
+                .build()
+
         private fun build(context: Context): SafeSpendDatabase =
             Room.databaseBuilder(context, SafeSpendDatabase::class.java, DB_NAME)
                 // Foreign keys are off by default in SQLite; without this the
