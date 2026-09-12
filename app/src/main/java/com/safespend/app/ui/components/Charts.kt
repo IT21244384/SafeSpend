@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** One wedge of the donut, or one bar of the bar chart. */
@@ -172,6 +173,12 @@ fun BarChart(
                     style = MaterialTheme.typography.labelSmall,
                     color = labelColor,
                     maxLines = 1,
+                    // Each slot is only as wide as one bar, so a two-digit day like
+                    // "10" does not fit inside it. Without these it was clipped to
+                    // "1" and the axis read 1, 5, 1, 1, 2, 2, 3. The neighbouring
+                    // slots are blank, so painting outside the slot costs nothing.
+                    softWrap = false,
+                    overflow = TextOverflow.Visible,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )

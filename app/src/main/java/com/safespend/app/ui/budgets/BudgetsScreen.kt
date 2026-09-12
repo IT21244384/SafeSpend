@@ -107,17 +107,17 @@ fun BudgetsScreen(
                     Row(Modifier.fillMaxWidth()) {
                         StatTile(
                             label = "Budgeted",
-                            value = Money.format(state.totalLimitMinor, state.currencySymbol),
+                            value = Money.formatCompact(state.totalLimitMinor, state.currencySymbol),
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Spent",
-                            value = Money.format(state.totalSpentMinor, state.currencySymbol),
+                            value = Money.formatCompact(state.totalSpentMinor, state.currencySymbol),
                             modifier = Modifier.weight(1f),
                         )
                         StatTile(
                             label = "Left",
-                            value = Money.format(state.totalRemainingMinor, state.currencySymbol),
+                            value = Money.formatCompact(state.totalRemainingMinor, state.currencySymbol),
                             valueColor = if (state.totalRemainingMinor < 0) moneyColors.expense
                             else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f),

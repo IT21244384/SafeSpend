@@ -119,25 +119,28 @@ fun HomeScreen(
         }
 
         item {
+            // Three figures across 412dp: at full precision "Rs 100,000.00" does not
+            // fit its third of the row and was being ellipsised mid-number. Compact
+            // form always fits; the exact figures are one tap away in the ledger.
             SectionCard {
                 Row(Modifier.fillMaxWidth()) {
                     StatTile(
                         label = "Income",
-                        value = Money.format(state.incomeMinor, state.currencySymbol),
+                        value = Money.formatCompact(state.incomeMinor, state.currencySymbol),
                         valueColor = moneyColors.income,
                         icon = Icons.Outlined.ArrowDownward,
                         modifier = Modifier.weight(1f),
                     )
                     StatTile(
                         label = "Spent",
-                        value = Money.format(state.expenseMinor, state.currencySymbol),
+                        value = Money.formatCompact(state.expenseMinor, state.currencySymbol),
                         valueColor = MaterialTheme.colorScheme.onSurface,
                         icon = Icons.Outlined.ArrowUpward,
                         modifier = Modifier.weight(1f),
                     )
                     StatTile(
                         label = "Net",
-                        value = Money.format(state.netMinor, state.currencySymbol),
+                        value = Money.formatCompact(state.netMinor, state.currencySymbol),
                         valueColor = if (state.netMinor < 0) moneyColors.expense else moneyColors.income,
                         modifier = Modifier.weight(1f),
                     )
