@@ -4,20 +4,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.safespend.app.data.prefs.Settings
+import com.safespend.app.data.prefs.ThemeMode
+import com.safespend.app.ui.SafeSpendRoot
 import com.safespend.app.ui.theme.SafeSpendTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        val preferences = (application as SafeSpendApp).container.preferences
+
         setContent {
-            SafeSpendTheme {
-                Surface(modifier = Modifier) {
-                    Text("SafeSpend")
-                }
+            val settings by preferences.settings.collectAsState(initial = Settings())
+            val darkTheme = when (settings.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            SafeSpendTheme(darkTheme = darkTheme) {
+                SafeSpendRoot()
             }
         }
     }
