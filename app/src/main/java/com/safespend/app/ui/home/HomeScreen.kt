@@ -221,7 +221,7 @@ private fun SafeToSpendCard(
     currencySymbol: String,
     isCurrentMonth: Boolean,
 ) {
-    val accent = MaterialTheme.colorScheme.tertiary
+    val accent = moneyColors.accentOnBrand
     val onBrand = MaterialTheme.colorScheme.onPrimary
 
     SectionCard(

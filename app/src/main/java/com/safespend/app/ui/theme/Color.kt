@@ -122,12 +122,20 @@ val DarkColors = darkColorScheme(
 data class MoneyColors(
     val income: Color,
     val expense: Color,
+    /**
+     * The accent as it appears *on top of* the brand surface. The normal accent is
+     * tuned for a white card; on Deep Teal it only reaches 3.6:1, which is fine for
+     * a 36sp figure and not fine for anything smaller. These values clear 4.5:1 on
+     * the brand fill in both themes, so the alert state is legible wherever it lands.
+     */
+    val accentOnBrand: Color,
     val chartSeries: List<Color>,
 )
 
 val LightMoneyColors = MoneyColors(
     income = IncomeLight,
     expense = ExpenseLight,
+    accentOnBrand = Color(0xFFFFB08C),
     chartSeries = listOf(
         TealDeep,
         Color(0xFF2F7F82),
@@ -143,6 +151,7 @@ val LightMoneyColors = MoneyColors(
 val DarkMoneyColors = MoneyColors(
     income = IncomeDark,
     expense = ExpenseDark,
+    accentOnBrand = Color(0xFF7A2D10),
     chartSeries = listOf(
         TealBright,
         Color(0xFF58B3B3),
