@@ -143,3 +143,4 @@ The APK lands in `app/build/outputs/apk/debug/`.
 |---|---|
 | [`docs/01-planning-and-requirements.md`](docs/01-planning-and-requirements.md) | Problem, target audience, feasibility study, scope, FR1–FR15 and NFR1–NFR9 |
 | [`docs/02-ui-design-spec.md`](docs/02-ui-design-spec.md) | Ideation, the 60-30-10 colour system, type scale, components, screen-by-screen layouts, accessibility, and a Figma rebuild guide |
+| [`figma-plugin/`](figma-plugin/README.md) | A Figma plugin that generates the whole design file — styles, components, eight screens and the prototype links — from the same values the app uses |
