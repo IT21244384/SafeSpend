@@ -72,17 +72,26 @@ class AddEditTransactionViewModel(
                     }
                 }
             }
-            loadCategories(_state.value.type)
+            applyType(_state.value.type)
         }
     }
 
-    private suspend fun loadCategories(type: TxType) {
+    /**
+     * Moves the form to a transaction type in a single state update.
+     *
+     * The type, the category list and the selection have to change together. Flipping
+     * the type first and loading the list afterwards leaves a window — short, but real
+     * — where the screen says "Income" above a grid of expense categories with one
+     * still selected, and a fast tap on Save would write an income transaction
+     * against an expense category.
+     */
+    private suspend fun applyType(type: TxType) {
         val categories = repository.observeCategories(type).first()
         _state.update { current ->
             current.copy(
+                type = type,
                 categories = categories,
-                // Keep the selection only if it still belongs to the visible list,
-                // otherwise an income category could survive a switch to Expense.
+                // Keep the selection only if it still belongs to the visible list.
                 selectedCategoryId = current.selectedCategoryId
                     ?.takeIf { id -> categories.any { it.id == id } },
             )
@@ -91,8 +100,7 @@ class AddEditTransactionViewModel(
 
     fun setType(type: TxType) {
         if (type == _state.value.type) return
-        _state.update { it.copy(type = type) }
-        viewModelScope.launch { loadCategories(type) }
+        viewModelScope.launch { applyType(type) }
     }
 
     fun setAmount(value: String) {
