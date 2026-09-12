@@ -114,6 +114,46 @@ function font(weight) {
   return { family: 'Inter', style: weight || 'Regular' };
 }
 
+/*
+ * Icons are drawn as real vectors rather than text glyphs.
+ *
+ * The first version of this plugin used characters like ⌂ and ▤ for the bottom
+ * bar. Inter has no glyph for them, so they rendered as nothing at all and the
+ * navigation came out as four bare labels. Anything that has to be tinted — and a
+ * selected tab does — has to be a vector.
+ */
+var ICONS = {
+  home: '<path d="M12 3.1 2.6 11.1h2.6V21h4.6v-5.4h4.4V21h4.6v-9.9h2.6L12 3.1Z"/>',
+  list: '<path d="M3.5 5h17v2.6h-17zM3.5 10.7h17v2.6h-17zM3.5 16.4h17V19h-17z"/>',
+  // An envelope, not a wallet: the app calls these envelope budgets, and at 21px a
+  // wallet's side pocket reads as an arrow rather than a pocket.
+  envelope: '<path d="M2.5 7.9 12 14.1l9.5-6.2V17a1.9 1.9 0 0 1-1.9 1.9H4.4A1.9 1.9 0 0 1 2.5 17V7.9Z"/><path d="M4.4 5.1h15.2c.75 0 1.4.44 1.71 1.07L12 12.3 2.69 6.17A1.9 1.9 0 0 1 4.4 5.1Z"/>',
+  chart: '<path d="M3.6 20V11h3.3v9zM10.4 20V4h3.3v16zM17.2 20v-6h3.3v6z"/>'
+};
+
+/**
+ * Builds a tintable icon from SVG path data at a 24×24 viewBox, then scales the
+ * whole node — children included — with rescale(). Resizing the wrapper frame
+ * alone would stretch the frame and leave the paths at their original size.
+ */
+function icon(pathData, size, colorHex) {
+  var node = figma.createNodeFromSvg(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">' +
+    pathData + '</svg>'
+  );
+  node.name = 'Icon';
+  node.fills = [];
+  var parts = node.findAll(function (n) {
+    return n.type === 'VECTOR' || n.type === 'RECTANGLE' || n.type === 'ELLIPSE';
+  });
+  for (var i = 0; i < parts.length; i++) {
+    parts[i].fills = [solid(colorHex)];
+    parts[i].strokes = [];
+  }
+  node.rescale(size / 24);
+  return node;
+}
+
 /**
  * o = { size, weight, color, opacity, width, align, style, lh, ls }
  */
@@ -394,17 +434,35 @@ function screen(name, x, y, o) {
     f.appendChild(sb);
     sb.x = 0; sb.y = 16;
     grow(add(sb, T('9:41', { size: 12, weight: 'Semi Bold', color: C.ink })));
-    add(sb, T('▁▂▃  ▮', { size: 11, color: C.ink, opacity: 0.75 }));
+
+    // Drawn, not typed — the block glyphs these replace were another set Inter
+    // has no coverage for.
+    var indicators = stack('Status icons', 'HORIZONTAL', { gap: 2.5, align: 'MAX' });
+    add(sb, indicators);
+    for (var b = 0; b < 3; b++) {
+      var signalBar = figma.createRectangle();
+      signalBar.name = 'Signal';
+      signalBar.resize(2.5, 4 + b * 2.5);
+      signalBar.cornerRadius = 1;
+      fill(signalBar, C.ink, 0.8);
+      add(indicators, signalBar);
+    }
+    var battery = figma.createRectangle();
+    battery.name = 'Battery';
+    battery.resize(17, 9);
+    battery.cornerRadius = 2.5;
+    fill(battery, C.ink, 0.8);
+    add(indicators, battery);
   }
 
   return { frame: f, content: content };
 }
 
 var NAV = [
-  ['⌂', 'Home'],
-  ['▤', 'Ledger'],
-  ['◈', 'Budgets'],
-  ['◕', 'Insights']
+  [ICONS.home, 'Home'],
+  [ICONS.list, 'Ledger'],
+  [ICONS.envelope, 'Budgets'],
+  [ICONS.chart, 'Insights']
 ];
 
 function bottomBar(frame, selectedIndex) {
@@ -429,7 +487,7 @@ function bottomBar(frame, selectedIndex) {
     });
     if (selected) fill(pill, C.tealContainer);
     add(item, pill);
-    add(pill, T(NAV[i][0], { size: 17, color: selected ? C.tealDeeper : C.muted }));
+    add(pill, icon(NAV[i][0], 21, selected ? C.tealDeeper : C.muted));
     add(item, T(NAV[i][1], {
       size: 11,
       weight: 'Medium',
@@ -488,7 +546,9 @@ function screenHeader(content, title, subtitle, opts) {
 
   var right = stack('Actions', 'HORIZONTAL', { gap: 14, align: 'CENTER' });
   add(right, T('‹', { size: 22, color: C.muted }));
-  add(right, T('›', { size: 22, color: opts.nextDisabled ? C.line : C.muted }));
+  // Muted at 30% rather than the line colour: a disabled control still has to be
+  // visibly a control, not an apparent rendering failure.
+  add(right, T('›', { size: 22, color: C.muted, opacity: opts.nextDisabled ? 0.3 : 1 }));
   if (opts.gear) {
     var gear = add(right, T('⚙', { size: 19, color: C.muted }));
     gear.name = 'Gear';
@@ -1064,8 +1124,7 @@ function buildCover(x, y) {
 // ------------------------------------------------------------- components
 
 function libraryPage() {
-  var page = figma.createPage();
-  page.name = 'Components';
+  var page = getOrCreatePage('Components');
 
   var items = [
     ['CategoryBadge', badge('🛒', C.cat2)],
@@ -1101,55 +1160,111 @@ function libraryPage() {
 
 // ----------------------------------------------------------------- styles
 
+function byName(list) {
+  var map = {};
+  for (var i = 0; i < list.length; i++) map[list[i].name] = list[i];
+  return map;
+}
+
+/**
+ * Creates the styles, or updates them if a previous run already made them.
+ * Re-running the plugin should leave one set of styles behind, not a second copy
+ * called "Deep Teal (1)".
+ */
 function createStyles() {
+  var existingPaint = {};
+  var existingText = {};
+  try { existingPaint = byName(figma.getLocalPaintStyles()); } catch (e) { /* first run */ }
+  try { existingText = byName(figma.getLocalTextStyles()); } catch (e) { /* first run */ }
+
   for (var i = 0; i < STYLE_GROUPS.length; i++) {
-    var s = figma.createPaintStyle();
-    s.name = STYLE_GROUPS[i][0];
+    var name = STYLE_GROUPS[i][0];
+    var s = existingPaint[name] || figma.createPaintStyle();
+    s.name = name;
     s.paints = [solid(STYLE_GROUPS[i][1])];
     paintStyles[STYLE_GROUPS[i][1]] = s;
   }
   for (var j = 0; j < TEXT_STYLES.length; j++) {
-    var t = figma.createTextStyle();
-    t.name = TEXT_STYLES[j][0];
+    var tName = TEXT_STYLES[j][0];
+    var t = existingText[tName] || figma.createTextStyle();
+    t.name = tName;
     t.fontName = font(TEXT_STYLES[j][2]);
     t.fontSize = TEXT_STYLES[j][1];
     t.lineHeight = { unit: 'PIXELS', value: TEXT_STYLES[j][3] };
     if (TEXT_STYLES[j][4]) t.letterSpacing = { unit: 'PIXELS', value: TEXT_STYLES[j][4] };
-    textStyles[TEXT_STYLES[j][0]] = t;
+    textStyles[tName] = t;
   }
+}
+
+/**
+ * Reuses a page of this name if one exists, emptying it first.
+ *
+ * Figma's free plan caps a file at three pages, and a second run that blindly
+ * created "Screens" and "Components" again would either hit that cap or leave
+ * the file with duplicates. Rebuilding in place makes the plugin safe to re-run.
+ */
+function getOrCreatePage(name) {
+  var pages = figma.root.children;
+  for (var i = 0; i < pages.length; i++) {
+    if (pages[i].name === name) {
+      var existing = pages[i].children.slice();
+      for (var j = 0; j < existing.length; j++) existing[j].remove();
+      return pages[i];
+    }
+  }
+  var page = figma.createPage();
+  page.name = name;
+  return page;
 }
 
 // -------------------------------------------------------------- prototype
 
-async function link(fromNode, toFrame, transition) {
-  if (!fromNode || !toFrame) return;
-  var reaction = {
-    trigger: { type: 'ON_CLICK' },
-    actions: [{
+var linkFailures = [];
+
+/**
+ * Directional transitions carry a required `direction`; SMART_ANIMATE and
+ * DISSOLVE must not. Omitting it made every MOVE_IN/MOVE_OUT reaction invalid, so
+ * the tab links worked and the FAB, back arrows and sheet did nothing at all.
+ */
+function transitionFor(type, direction) {
+  var t = { type: type || 'SMART_ANIMATE', easing: { type: 'EASE_OUT' }, duration: 0.3 };
+  if (t.type === 'MOVE_IN' || t.type === 'MOVE_OUT' || t.type === 'PUSH' ||
+      t.type === 'SLIDE_IN' || t.type === 'SLIDE_OUT') {
+    t.direction = direction || 'BOTTOM';
+    t.matchLayers = false;
+  }
+  return t;
+}
+
+/**
+ * Tries the requested transition, then plain DISSOLVE, and under each the current
+ * `actions` array shape then the older single `action` shape. Anything that still
+ * fails is collected and reported when the plugin closes — a prototype link that
+ * quietly doesn't exist is worse than one that looks wrong.
+ */
+async function link(fromNode, toFrame, type, direction) {
+  if (!fromNode) { linkFailures.push('(node not found → ' + (toFrame ? toFrame.name : '?') + ')'); return; }
+  if (!toFrame) { linkFailures.push(fromNode.name + ' (no destination)'); return; }
+
+  var candidates = [transitionFor(type, direction), transitionFor('DISSOLVE')];
+  for (var i = 0; i < candidates.length; i++) {
+    var action = {
       type: 'NODE',
       destinationId: toFrame.id,
       navigation: 'NAVIGATE',
-      transition: {
-        type: transition || 'SMART_ANIMATE',
-        easing: { type: 'EASE_OUT' },
-        duration: 0.3
-      },
+      transition: candidates[i],
       preserveScrollPosition: false
-    }]
-  };
-  try {
-    await fromNode.setReactionsAsync([reaction]);
-  } catch (e) {
-    // Older API shape: a single `action` rather than an `actions` array.
+    };
     try {
-      await fromNode.setReactionsAsync([{
-        trigger: reaction.trigger,
-        action: reaction.actions[0]
-      }]);
-    } catch (e2) {
-      console.log('Could not set a prototype link on ' + fromNode.name + ': ' + e2);
-    }
+      await fromNode.setReactionsAsync([{ trigger: { type: 'ON_CLICK' }, actions: [action] }]);
+      return;
+    } catch (e) { /* try the older shape */ }
+    try {
+      await fromNode.setReactionsAsync([{ trigger: { type: 'ON_CLICK' }, action: action }]);
+      return;
+    } catch (e2) { /* try the next transition */ }
   }
+  linkFailures.push(fromNode.name);
 }
 
 function navItem(frame, label) {
@@ -1176,19 +1291,21 @@ async function wirePrototype(screens) {
       if (i === j) continue;
       await link(navItem(frame, labels[j]), targets[j], 'SMART_ANIMATE');
     }
-    await link(named(frame, 'FAB'), screens.entry, 'MOVE_IN');
+    // Entry arrives as a sheet from the bottom, the way the real app opens it.
+    await link(named(frame, 'FAB'), screens.entry, 'MOVE_IN', 'TOP');
   }
 
-  await link(named(screens.goals, 'FAB'), screens.entry, 'MOVE_IN');
-  await link(named(screens.entry, 'Button / Paste a bank message'), screens.paste, 'MOVE_IN');
-  await link(named(screens.paste, 'Button / Fill in the form'), screens.entry, 'MOVE_OUT');
-  await link(named(screens.paste, 'Scrim'), screens.entry, 'MOVE_OUT');
-  await link(named(screens.entry, 'Button / Add transaction'), screens.home, 'MOVE_OUT');
-  await link(named(screens.entry, 'Back'), screens.home, 'MOVE_OUT');
-  await link(named(screens.goals, 'Back'), screens.home, 'MOVE_OUT');
-  await link(named(screens.settings, 'Back'), screens.home, 'MOVE_OUT');
-  await link(named(screens.settings, 'SectionHeader / Savings goals'), screens.goals, 'SMART_ANIMATE');
-  await link(named(screens.home, 'Gear'), screens.settings, 'MOVE_IN');
+  await link(named(screens.goals, 'FAB'), screens.entry, 'MOVE_IN', 'TOP');
+  await link(named(screens.entry, 'Button / Paste a bank message'), screens.paste, 'MOVE_IN', 'TOP');
+  await link(named(screens.paste, 'Button / Fill in the form'), screens.entry, 'MOVE_OUT', 'BOTTOM');
+  await link(named(screens.paste, 'Scrim'), screens.entry, 'MOVE_OUT', 'BOTTOM');
+  await link(named(screens.entry, 'Button / Add transaction'), screens.home, 'MOVE_OUT', 'BOTTOM');
+  await link(named(screens.entry, 'Back'), screens.home, 'MOVE_OUT', 'BOTTOM');
+  // Full-screen destinations push in from the right and pop back out to it.
+  await link(named(screens.goals, 'Back'), screens.home, 'MOVE_OUT', 'RIGHT');
+  await link(named(screens.settings, 'Back'), screens.home, 'MOVE_OUT', 'RIGHT');
+  await link(named(screens.settings, 'SectionHeader / Savings goals'), screens.goals, 'MOVE_IN', 'LEFT');
+  await link(named(screens.home, 'Gear'), screens.settings, 'MOVE_IN', 'LEFT');
   await link(named(screens.home, 'SectionHeader / Where it went'), screens.insights, 'SMART_ANIMATE');
   await link(named(screens.home, 'SectionHeader / Recent activity'), screens.ledger, 'SMART_ANIMATE');
 }
@@ -1205,8 +1322,7 @@ async function main() {
 
   createStyles();
 
-  var page = figma.createPage();
-  page.name = 'Screens';
+  var page = getOrCreatePage('Screens');
   figma.currentPage = page;
 
   var gapX = 500;
@@ -1245,8 +1361,15 @@ async function main() {
   libraryPage();
 
   figma.viewport.scrollAndZoomIntoView(frames);
-  figma.closePlugin('SafeSpend design built: 8 screens, a design-system frame, ' +
-    STYLE_GROUPS.length + ' colour styles, ' + TEXT_STYLES.length + ' text styles and a component page.');
+
+  var summary = 'SafeSpend design built: 8 screens, a design-system frame, ' +
+    STYLE_GROUPS.length + ' colour styles, ' + TEXT_STYLES.length + ' text styles and a component page.';
+  if (linkFailures.length) {
+    summary += ' ' + linkFailures.length + ' prototype link(s) failed: ' + linkFailures.join(', ');
+  } else {
+    summary += ' All prototype links connected.';
+  }
+  figma.closePlugin(summary);
 }
 
 main().catch(function (err) {
